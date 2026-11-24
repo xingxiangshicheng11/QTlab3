@@ -3,13 +3,30 @@
 #include "welcomewidget.h"
 #include "patientwidget.h"
 
+#include <QAction>
 #include <QLabel>
 #include <QMessageBox>
 #include <QStackedWidget>
 #include <QToolBar>
 #include <QVBoxLayout>
-#include <QAction>
 #include <QWidget>
+
+namespace {
+
+QWidget *createPlaceholderPage(QWidget *parent, const QString &text)
+{
+    QWidget *page = new QWidget(parent);
+    QVBoxLayout *layout = new QVBoxLayout(page);
+    layout->setContentsMargins(24, 24, 24, 24);
+
+    QLabel *label = new QLabel(text, page);
+    label->setAlignment(Qt::AlignCenter);
+    label->setStyleSheet(QStringLiteral("color:#888; font-size:15px;"));
+    layout->addWidget(label);
+    return page;
+}
+
+} // namespace
 
 MasterView::MasterView(QWidget *parent)
     : QWidget(parent)
@@ -65,9 +82,15 @@ void MasterView::buildUi()
     m_loginPage = new LoginWidget(this);
     m_welcomePage = new WelcomeWidget(this);
     m_patientPage = new PatientWidget(this);
-    m_stack->addWidget(m_loginPage);   // 0
-    m_stack->addWidget(m_welcomePage); // 1
-    m_stack->addWidget(m_patientPage); // 2
+    m_departmentPage = createPlaceholderPage(this, QStringLiteral("科室管理（选做功能，暂未实现）"));
+    m_doctorPage = createPlaceholderPage(this, QStringLiteral("医生管理（选做功能，暂未实现）"));
+
+    // 页面顺序与 Page 枚举保持一致
+    m_stack->addWidget(m_loginPage);      // Page::Login
+    m_stack->addWidget(m_welcomePage);    // Page::Welcome
+    m_stack->addWidget(m_patientPage);    // Page::Patient
+    m_stack->addWidget(m_departmentPage); // Page::Department
+    m_stack->addWidget(m_doctorPage);     // Page::Doctor
 
     m_developerLabel = new QLabel(QStringLiteral("学号：________    姓名：________"), this);
     m_developerLabel->setAlignment(Qt::AlignCenter);
@@ -141,18 +164,58 @@ void MasterView::buildUi()
     connect(m_backAction, &QAction::triggered, this, &MasterView::goBack);
     connect(m_loginPage, &LoginWidget::loginRequested, this, &MasterView::onLoginRequested);
     connect(m_loginPage, &LoginWidget::registerRequested, this, &MasterView::onRegisterClicked);
+    connect(m_welcomePage, &WelcomeWidget::departmentRequested, this, &MasterView::onDepartmentClicked);
+    connect(m_welcomePage, &WelcomeWidget::doctorRequested, this, &MasterView::onDoctorClicked);
     connect(m_welcomePage, &WelcomeWidget::patientRequested, this, &MasterView::onPatientClicked);
-    connect(m_welcomePage, &WelcomeWidget::departmentRequested, this, &MasterView::onOptionalModuleClicked);
-    connect(m_welcomePage, &WelcomeWidget::doctorRequested, this, &MasterView::onOptionalModuleClicked);
 
-    switchToPage(m_loginPage, QStringLiteral("登录"), false);
+    switchToPage(Page::Login);
 }
 
-void MasterView::switchToPage(QWidget *page, const QString &title, bool showBack)
+QWidget *MasterView::pageWidget(Page page) const
 {
-    m_stack->setCurrentWidget(page);
-    m_pageTitle->setText(title);
-    m_backAction->setVisible(showBack);
+    switch (page) {
+    case Page::Login:
+        return m_loginPage;
+    case Page::Welcome:
+        return m_welcomePage;
+    case Page::Patient:
+        return m_patientPage;
+    case Page::Department:
+        return m_departmentPage;
+    case Page::Doctor:
+        return m_doctorPage;
+    }
+    return m_loginPage;
+}
+
+QString MasterView::pageTitle(Page page)
+{
+    switch (page) {
+    case Page::Login:
+        return QStringLiteral("登录");
+    case Page::Welcome:
+        return QStringLiteral("欢迎");
+    case Page::Patient:
+        return QStringLiteral("患者管理");
+    case Page::Department:
+        return QStringLiteral("科室管理");
+    case Page::Doctor:
+        return QStringLiteral("医生管理");
+    }
+    return QString();
+}
+
+bool MasterView::pageShowsBack(Page page)
+{
+    return page != Page::Login;
+}
+
+void MasterView::switchToPage(Page page)
+{
+    m_currentPage = page;
+    m_stack->setCurrentWidget(pageWidget(page));
+    m_pageTitle->setText(pageTitle(page));
+    m_backAction->setVisible(pageShowsBack(page));
 }
 
 void MasterView::onLoginRequested(const QString &username, const QString &password)
@@ -163,7 +226,7 @@ void MasterView::onLoginRequested(const QString &username, const QString &passwo
         return;
     }
     // 登录校验将在数据库模块中实现，此处仅做界面切换
-    switchToPage(m_welcomePage, QStringLiteral("欢迎"), false);
+    switchToPage(Page::Welcome);
 }
 
 void MasterView::onRegisterClicked()
@@ -172,23 +235,33 @@ void MasterView::onRegisterClicked()
                              QStringLiteral("注册功能将在后续步骤实现"));
 }
 
-void MasterView::onPatientClicked()
+void MasterView::onDepartmentClicked()
 {
-    switchToPage(m_patientPage, QStringLiteral("患者管理"), true);
+    switchToPage(Page::Department);
 }
 
-void MasterView::onOptionalModuleClicked()
+void MasterView::onDoctorClicked()
 {
-    QMessageBox::information(this, QStringLiteral("提示"),
-                             QStringLiteral("医生 / 科室管理为选做功能，暂未实现"));
+    switchToPage(Page::Doctor);
+}
+
+void MasterView::onPatientClicked()
+{
+    switchToPage(Page::Patient);
 }
 
 void MasterView::goBack()
 {
-    QWidget *current = m_stack->currentWidget();
-    if (current == m_patientPage) {
-        switchToPage(m_welcomePage, QStringLiteral("欢迎"), false);
-    } else if (current == m_welcomePage) {
-        switchToPage(m_loginPage, QStringLiteral("登录"), false);
+    switch (m_currentPage) {
+    case Page::Department:
+    case Page::Doctor:
+    case Page::Patient:
+        switchToPage(Page::Welcome);
+        break;
+    case Page::Welcome:
+        switchToPage(Page::Login);
+        break;
+    default:
+        break;
     }
 }

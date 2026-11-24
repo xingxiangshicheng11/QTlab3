@@ -22,13 +22,25 @@ public:
 private slots:
     void onLoginRequested(const QString &username, const QString &password);
     void onRegisterClicked();
+    void onDepartmentClicked();
+    void onDoctorClicked();
     void onPatientClicked();
-    void onOptionalModuleClicked();
     void goBack();
 
 private:
+    enum class Page {
+        Login,
+        Welcome,
+        Patient,
+        Department,
+        Doctor
+    };
+
     void buildUi();
-    void switchToPage(QWidget *page, const QString &title, bool showBack);
+    void switchToPage(Page page);
+    QWidget *pageWidget(Page page) const;
+    static QString pageTitle(Page page);
+    static bool pageShowsBack(Page page);
 
     QToolBar *m_toolBar = nullptr;
     QAction *m_backAction = nullptr;
@@ -38,6 +50,9 @@ private:
     LoginWidget *m_loginPage = nullptr;
     WelcomeWidget *m_welcomePage = nullptr;
     PatientWidget *m_patientPage = nullptr;
+    QWidget *m_departmentPage = nullptr;
+    QWidget *m_doctorPage = nullptr;
+    Page m_currentPage = Page::Login;
 };
 
 #endif // MASTERVIEW_H
