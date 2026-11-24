@@ -24,3 +24,9 @@ void LoginWidget::submit()
 {
     emit loginRequested(ui->editUser->text().trimmed(), ui->editPwd->text());
 }
+
+void LoginWidget::clearPassword()
+{
+    ui->editPwd->clear();
+    ui->editPwd->setFocus();
+}

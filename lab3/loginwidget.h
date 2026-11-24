@@ -15,6 +15,8 @@ public:
     explicit LoginWidget(QWidget *parent = nullptr);
     ~LoginWidget();
 
+    void clearPassword();
+
 signals:
     void loginRequested(const QString &username, const QString &password);
     void registerRequested();

@@ -2,6 +2,7 @@
 #include "loginwidget.h"
 #include "welcomewidget.h"
 #include "patientwidget.h"
+#include "databasemanager.h"
 
 #include <QAction>
 #include <QLabel>
@@ -225,8 +226,22 @@ void MasterView::onLoginRequested(const QString &username, const QString &passwo
                              QStringLiteral("请输入用户名和密码"));
         return;
     }
-    // 登录校验将在数据库模块中实现，此处仅做界面切换
-    switchToPage(Page::Welcome);
+
+    DatabaseManager &db = DatabaseManager::instance();
+    if (!db.isOpen()) {
+        QMessageBox::critical(this, QStringLiteral("数据库未连接"),
+                              QStringLiteral("数据库未连接：%1").arg(db.lastError()));
+        return;
+    }
+
+    if (db.authenticate(username, password)) {
+        m_loginPage->clearPassword();
+        switchToPage(Page::Welcome);
+    } else {
+        m_loginPage->clearPassword();
+        QMessageBox::warning(this, QStringLiteral("登录失败"),
+                             QStringLiteral("用户名或密码错误，请重试"));
+    }
 }
 
 void MasterView::onRegisterClicked()
