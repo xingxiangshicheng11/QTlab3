@@ -18,7 +18,8 @@ SOURCES += \
     welcomewidget.cpp \
     patientwidget.cpp \
     patientdialog.cpp \
-    databasemanager.cpp
+    databasemanager.cpp \
+    sexdelegate.cpp
 
 HEADERS += \
     masterview.h \
@@ -26,7 +27,8 @@ HEADERS += \
     welcomewidget.h \
     patientwidget.h \
     patientdialog.h \
-    databasemanager.h
+    databasemanager.h \
+    sexdelegate.h
 
 FORMS += \
     loginwidget.ui \
