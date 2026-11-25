@@ -1,0 +1,22 @@
+#ifndef SEXDELEGATE_H
+#define SEXDELEGATE_H
+
+#include <QStyledItemDelegate>
+
+class SexDelegate : public QStyledItemDelegate
+{
+    Q_OBJECT
+
+public:
+    explicit SexDelegate(QObject *parent = nullptr);
+
+    void paint(QPainter *painter, const QStyleOptionViewItem &option,
+               const QModelIndex &index) const override;
+    QWidget *createEditor(QWidget *parent, const QStyleOptionViewItem &option,
+                          const QModelIndex &index) const override;
+    void setEditorData(QWidget *editor, const QModelIndex &index) const override;
+    void setModelData(QWidget *editor, QAbstractItemModel *model,
+                      const QModelIndex &index) const override;
+};
+
+#endif // SEXDELEGATE_H

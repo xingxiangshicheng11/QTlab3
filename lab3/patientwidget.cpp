@@ -1,13 +1,17 @@
 #include "patientwidget.h"
 #include "ui_patientwidget.h"
 #include "databasemanager.h"
+#include "patientdialog.h"
 #include "sexdelegate.h"
 
+#include <QDateTime>
 #include <QHeaderView>
 #include <QMessageBox>
 #include <QModelIndex>
 #include <QSqlError>
+#include <QSqlQuery>
 #include <QSqlTableModel>
+#include <QTableView>
 
 PatientWidget::PatientWidget(QWidget *parent)
     : QWidget(parent)
@@ -20,6 +24,9 @@ PatientWidget::PatientWidget(QWidget *parent)
     connect(ui->btnSearch, &QPushButton::clicked, this, &PatientWidget::onSearch);
     connect(ui->editSearch, &QLineEdit::returnPressed, this, &PatientWidget::onSearch);
     connect(ui->btnDelete, &QPushButton::clicked, this, &PatientWidget::onDelete);
+    connect(ui->btnAdd, &QPushButton::clicked, this, &PatientWidget::onAdd);
+    connect(ui->btnEdit, &QPushButton::clicked, this, &PatientWidget::onEdit);
+    connect(ui->tableView, &QTableView::doubleClicked, this, &PatientWidget::onEdit);
 }
 
 PatientWidget::~PatientWidget()
@@ -135,4 +142,148 @@ void PatientWidget::onDelete()
     }
 
     refresh();
+}
+
+void PatientWidget::onAdd()
+{
+    PatientDialog dialog(this);
+    dialog.setEditMode(false);
+
+    for (;;) {
+        if (dialog.exec() != QDialog::Accepted)
+            return;
+
+        const PatientRecord record = dialog.record();
+        if (idExists(record.id)) {
+            QMessageBox::warning(this, QStringLiteral("添加失败"),
+                                 QStringLiteral("患者 ID“%1”已存在，请修改后重试")
+                                     .arg(record.id));
+            continue;
+        }
+
+        QString error;
+        if (!insertPatient(record, error)) {
+            QMessageBox::critical(this, QStringLiteral("添加失败"), error);
+            return;
+        }
+
+        // 清空过滤，确保新增记录可见并被选中
+        ui->editSearch->clear();
+        m_model->setFilter(QString());
+        refresh();
+        selectPatientById(record.id);
+        return;
+    }
+}
+
+void PatientWidget::onEdit()
+{
+    const QModelIndex current = ui->tableView->currentIndex();
+    if (!current.isValid()) {
+        QMessageBox::information(this, QStringLiteral("提示"),
+                                 QStringLiteral("请先选择要修改的患者记录"));
+        return;
+    }
+
+    const int row = current.row();
+    PatientRecord record;
+    record.id = m_model->data(m_model->index(row, 0)).toString();
+    record.idCard = m_model->data(m_model->index(row, 1)).toString();
+    record.name = m_model->data(m_model->index(row, 2)).toString();
+    record.sex = m_model->data(m_model->index(row, 3)).toInt();
+    record.dob = m_model->data(m_model->index(row, 4)).toString();
+    record.height = m_model->data(m_model->index(row, 5)).toDouble();
+    record.weight = m_model->data(m_model->index(row, 6)).toDouble();
+    record.mobile = m_model->data(m_model->index(row, 7)).toString();
+    record.age = m_model->data(m_model->index(row, 8)).toInt();
+
+    PatientDialog dialog(this);
+    dialog.setEditMode(true);
+    dialog.setRecord(record);
+    if (dialog.exec() != QDialog::Accepted)
+        return;
+
+    PatientRecord updated = dialog.record();
+    updated.id = record.id; // 主键不可修改
+
+    QString error;
+    if (!updatePatient(updated, error)) {
+        QMessageBox::critical(this, QStringLiteral("修改失败"), error);
+        return;
+    }
+
+    refresh();
+    selectPatientById(updated.id);
+}
+
+bool PatientWidget::idExists(const QString &id) const
+{
+    QSqlQuery query(DatabaseManager::instance().database());
+    query.prepare(QStringLiteral("SELECT 1 FROM \"Patient\" WHERE \"ID\" = ?"));
+    query.addBindValue(id);
+    if (!query.exec())
+        return false;
+    return query.next();
+}
+
+bool PatientWidget::insertPatient(const PatientRecord &record, QString &error)
+{
+    QSqlQuery query(DatabaseManager::instance().database());
+    query.prepare(QStringLiteral(
+        "INSERT INTO \"Patient\" "
+        "(\"ID\",\"ID_CARD\",\"NAME\",\"SEX\",\"DOB\",\"HEIGHT\",\"WEIGHT\","
+        "\"MOBILEPHONE\",\"AGE\",\"CREATEDTIMESTAMP\") "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)"));
+    query.addBindValue(record.id);
+    query.addBindValue(record.idCard);
+    query.addBindValue(record.name);
+    query.addBindValue(record.sex);
+    query.addBindValue(record.dob);
+    query.addBindValue(record.height);
+    query.addBindValue(record.weight);
+    query.addBindValue(record.mobile);
+    query.addBindValue(record.age);
+    query.addBindValue(QDateTime::currentDateTime().toString(
+        QStringLiteral("yyyy-MM-dd HH:mm:ss")));
+
+    if (!query.exec()) {
+        error = query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+bool PatientWidget::updatePatient(const PatientRecord &record, QString &error)
+{
+    QSqlQuery query(DatabaseManager::instance().database());
+    query.prepare(QStringLiteral(
+        "UPDATE \"Patient\" SET "
+        "\"ID_CARD\"=?, \"NAME\"=?, \"SEX\"=?, \"DOB\"=?, \"HEIGHT\"=?, "
+        "\"WEIGHT\"=?, \"MOBILEPHONE\"=?, \"AGE\"=? WHERE \"ID\"=?"));
+    query.addBindValue(record.idCard);
+    query.addBindValue(record.name);
+    query.addBindValue(record.sex);
+    query.addBindValue(record.dob);
+    query.addBindValue(record.height);
+    query.addBindValue(record.weight);
+    query.addBindValue(record.mobile);
+    query.addBindValue(record.age);
+    query.addBindValue(record.id);
+
+    if (!query.exec()) {
+        error = query.lastError().text();
+        return false;
+    }
+    return true;
+}
+
+void PatientWidget::selectPatientById(const QString &id)
+{
+    for (int i = 0; i < m_model->rowCount(); ++i) {
+        if (m_model->data(m_model->index(i, 0)).toString() == id) {
+            ui->tableView->selectRow(i);
+            ui->tableView->scrollTo(m_model->index(i, 0));
+            return;
+        }
+    }
 }
