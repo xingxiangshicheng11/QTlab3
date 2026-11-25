@@ -93,7 +93,7 @@ void MasterView::buildUi()
     m_stack->addWidget(m_departmentPage); // Page::Department
     m_stack->addWidget(m_doctorPage);     // Page::Doctor
 
-    m_developerLabel = new QLabel(QStringLiteral("学号：________    姓名：________"), this);
+    m_developerLabel = new QLabel(QStringLiteral("学号：2024414300129    姓名：赵程程"), this);
     m_developerLabel->setAlignment(Qt::AlignCenter);
     m_developerLabel->setObjectName(QStringLiteral("lblDeveloper"));
     root->addWidget(m_developerLabel);

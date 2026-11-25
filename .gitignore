@@ -1,0 +1,25 @@
+# ---- Build outputs ----
+build-*/
+lab3/build-*/
+
+# ---- Compiled binaries / objects ----
+*.o
+*.obj
+*.exe
+*.dll
+*.a
+*.so
+*.so.*
+
+# ---- Qt Creator ----
+*.pro.user
+*.pro.user.*
+
+# ---- Office temp / report documents ----
+~$*
+*.docx
+
+# ---- SQLite transient files ----
+*.db-journal
+*.db-wal
+*.db-shm
